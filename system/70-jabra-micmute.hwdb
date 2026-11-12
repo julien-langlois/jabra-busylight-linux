@@ -1,0 +1,11 @@
+# Stop the kernel from turning the HID "Phone Mute" usage (Telephony page 0x0b,
+# usage 0x2f) of Jabra devices into a KEY_MICMUTE key press.
+#
+# Without this, raising the boom arm mutes the microphone twice: in Google Meet
+# (through WebHID) AND at system level (the desktop environment reacts to
+# KEY_MICMUTE). The two states drift apart and Meet shows
+# "Microphone muted by system".
+#
+# Note: the KEYBOARD_KEY_ line must start with a space.
+evdev:input:b0003v0B0Ep*
+ KEYBOARD_KEY_b002f=reserved

@@ -1,0 +1,8 @@
+# Jabra (USB vendor ID 0b0e): give the user of the active session read/write
+# access to the hidraw interfaces of Jabra dongles and headsets.
+# Required by WebHID (Google Meet in Chrome/Chromium) and by the
+# jabra-busylight daemon.
+#
+# The 70 prefix matters: the "uaccess" tag is only applied if it is set
+# before 73-seat-late.rules. With a 99 prefix it is silently ignored.
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0b0e", MODE="0660", TAG+="uaccess"

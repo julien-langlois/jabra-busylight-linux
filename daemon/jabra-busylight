@@ -1,0 +1,641 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+"""jabra-busylight: drive a Jabra headset busylight from microphone usage.
+
+The daemon watches PipeWire (through pactl). As soon as an application
+records from the Jabra headset microphone, it sends the HID "Off-Hook"
+report to the dongle and the busylight turns on. When no application is
+recording any more, it turns the busylight off after a short delay.
+
+With --mute-sync (enabled by default) it also handles the mute button /
+boom arm: every "Phone Mute" event from the headset toggles the mute state
+of the Jabra PipeWire source and the headset "Mute" LED.
+
+Requirements: Python >= 3.9 (standard library only) and pactl >= 16
+(PulseAudio or pipewire-pulse) for --format=json output.
+"""
+
+import argparse
+import json
+import logging
+import os
+import selectors
+import signal
+import subprocess
+import sys
+import time
+
+__version__ = "0.1.0"
+
+SYSFS_HIDRAW = "/sys/class/hidraw"
+DEV_DIR = "/dev"
+JABRA_VENDOR_ID = 0x0B0E
+
+# "Telephony" report (Report ID 2 on the Jabra Link 390), output host -> headset:
+#   data byte 0, bit 0: Off-Hook LED -> busylight
+#   data byte 0, bit 1: Mute LED
+#   everything else (Ring, Hold, ..., padding) is left at 0
+DEFAULT_REPORT_ID = 0x02
+LED_OFF_HOOK = 0x01
+LED_MUTE = 0x02
+# Same Report ID, input headset -> host: data byte 0, bit 3 = Phone Mute
+INPUT_PHONE_MUTE = 0x08
+
+DEFAULT_IGNORE = "pavucontrol,gnome-control-center,chrome,chromium"
+
+# pactl output is localized: force the C locale so it can be parsed.
+C_ENV = dict(os.environ, LC_ALL="C")
+
+log = logging.getLogger("jabra-busylight")
+
+
+class Stop(Exception):
+    """Raised by the signal handler to leave the main loop cleanly."""
+
+
+class PulseError(RuntimeError):
+    """Error while talking to PipeWire / PulseAudio through pactl."""
+
+
+# ---------------------------------------------------------------------------
+# HID device
+# ---------------------------------------------------------------------------
+
+def _read_uevent(path):
+    try:
+        with open(path) as f:
+            lines = f.read().splitlines()
+    except OSError:
+        return {}
+    return dict(line.split("=", 1) for line in lines if "=" in line)
+
+
+def _hidraw_num(entry):
+    digits = entry[len("hidraw"):]
+    return int(digits) if digits.isdigit() else 0
+
+
+def list_jabra_hidraw():
+    """List Jabra hidraw interfaces (USB vendor ID 0x0b0e)."""
+    devices = []
+    try:
+        entries = os.listdir(SYSFS_HIDRAW)
+    except FileNotFoundError:
+        return devices
+    for entry in sorted(entries, key=_hidraw_num):
+        dev_dir = os.path.join(SYSFS_HIDRAW, entry, "device")
+        props = _read_uevent(os.path.join(dev_dir, "uevent"))
+        parts = props.get("HID_ID", "").split(":")  # e.g. 0003:00000B0E:0000xxxx
+        if len(parts) != 3:
+            continue
+        try:
+            vendor, product = int(parts[1], 16), int(parts[2], 16)
+        except ValueError:
+            continue
+        if vendor != JABRA_VENDOR_ID:
+            continue
+        try:
+            with open(os.path.join(dev_dir, "report_descriptor"), "rb") as f:
+                descriptor = f.read()
+        except OSError:
+            descriptor = b""
+        path = os.path.join(DEV_DIR, entry)
+        devices.append({
+            "path": path,
+            "name": props.get("HID_NAME", "").strip(),
+            "product": product,
+            # 05 0b = Usage Page (Telephony Devices)
+            "telephony": b"\x05\x0b" in descriptor,
+            "writable": os.access(path, os.R_OK | os.W_OK),
+        })
+    return devices
+
+
+class Headset:
+    """Access to the Jabra dongle through /dev/hidrawN, located dynamically."""
+
+    def __init__(self, report_id, name_match="", on_close=None):
+        self.report_id = report_id
+        self.name_match = name_match.lower()
+        self.on_close = on_close
+        self.fd = None
+        self.path = None
+        self.name = None
+        self._warned = False
+
+    def open(self):
+        if self.fd is not None:
+            return True
+        for dev in list_jabra_hidraw():
+            if not dev["telephony"]:
+                continue
+            if self.name_match and self.name_match not in dev["name"].lower():
+                continue
+            try:
+                self.fd = os.open(dev["path"], os.O_RDWR | os.O_NONBLOCK)
+            except PermissionError:
+                if not self._warned:
+                    log.error("Permission denied on %s (%s): is the 70-jabra.rules udev rule "
+                              "installed? Unplug and replug the dongle after installing it.",
+                              dev["path"], dev["name"])
+                    self._warned = True
+                continue
+            except OSError as exc:
+                log.warning("Cannot open %s: %s", dev["path"], exc)
+                continue
+            self.path, self.name = dev["path"], dev["name"]
+            self._warned = False
+            log.info("Jabra dongle opened: %s (%s)", self.name, self.path)
+            return True
+        if not self._warned:
+            log.warning("No accessible Jabra dongle yet (will retry automatically).")
+            self._warned = True
+        return False
+
+    def close(self):
+        if self.fd is None:
+            return
+        if self.on_close:
+            self.on_close(self.fd)
+        try:
+            os.close(self.fd)
+        except OSError:
+            pass
+        log.info("Jabra dongle closed (%s)", self.path)
+        self.fd = None
+        self.path = None
+
+    def set_leds(self, bits):
+        """Send the output report: [Report ID, LED byte, padding byte]."""
+        if not self.open():
+            return False
+        report = bytes([self.report_id, bits & 0xFF, 0x00])
+        try:
+            os.write(self.fd, report)
+        except OSError as exc:
+            log.warning("HID write failed on %s: %s", self.path, exc)
+            self.close()
+            return False
+        log.debug("HID report sent: %s", report.hex(" "))
+        return True
+
+    def read(self):
+        """Read an input report: b'' if nothing to read, None if the dongle is gone."""
+        if self.fd is None:
+            return None
+        try:
+            return os.read(self.fd, 64)
+        except BlockingIOError:
+            return b""
+        except OSError as exc:
+            log.warning("HID read failed (%s): dongle unplugged?", exc)
+            self.close()
+            return None
+
+
+# ---------------------------------------------------------------------------
+# PipeWire / PulseAudio (through pactl)
+# ---------------------------------------------------------------------------
+
+def pactl(*args, timeout=5):
+    try:
+        res = subprocess.run(["pactl", *args], capture_output=True, text=True,
+                             timeout=timeout, env=C_ENV)
+    except FileNotFoundError:
+        raise PulseError("pactl not found (pulseaudio-utils package or equivalent)")
+    except subprocess.TimeoutExpired:
+        raise PulseError("pactl is not responding")
+    if res.returncode != 0:
+        raise PulseError(res.stderr.strip() or "pactl %s: exit code %d" % (" ".join(args), res.returncode))
+    return res.stdout
+
+
+def pactl_json(*args):
+    out = pactl("--format=json", *args).strip()
+    if not out:
+        return []
+    try:
+        return json.loads(out)
+    except json.JSONDecodeError as exc:
+        raise PulseError("invalid JSON returned by pactl: %s" % exc)
+
+
+def jabra_sources(match):
+    """Microphone sources (monitors excluded) whose name or description contains `match`.
+
+    Returns {index: (name, muted)}.
+    """
+    sources = {}
+    for src in pactl_json("list", "sources"):
+        name = src.get("name", "")
+        props = src.get("properties") or {}
+        if name.endswith(".monitor") or props.get("device.class") == "monitor":
+            continue
+        if match in (name + " " + src.get("description", "")).lower():
+            sources[src.get("index")] = (name, bool(src.get("mute")))
+    return sources
+
+
+def stream_label(props):
+    parts = []
+    for key in ("application.name", "application.process.binary", "application.id", "media.name"):
+        value = props.get(key)
+        if value and str(value) not in parts:
+            parts.append(str(value))
+    return " / ".join(parts) or "(unknown)"
+
+
+def classify_streams(args):
+    """Return (Jabra sources, streams); streams = [(label, source, triggers, reason)]."""
+    sources = jabra_sources(args.source_match)
+    streams = []
+    if not sources:
+        return sources, streams
+    for out in pactl_json("list", "source-outputs"):
+        src = out.get("source")
+        if src not in sources:
+            continue
+        label = stream_label(out.get("properties") or {})
+        hay = label.lower()
+        if any(word in hay for word in args.ignore):
+            streams.append((label, sources[src][0], False, "ignored"))
+        elif args.apps and not any(word in hay for word in args.apps):
+            streams.append((label, sources[src][0], False, "not listed"))
+        else:
+            streams.append((label, sources[src][0], True, ""))
+    return sources, streams
+
+
+def set_source_mute(name, muted):
+    pactl("set-source-mute", name, "1" if muted else "0")
+
+
+# ---------------------------------------------------------------------------
+# Daemon
+# ---------------------------------------------------------------------------
+
+class Daemon:
+    def __init__(self, args):
+        self.args = args
+        self.sel = selectors.DefaultSelector()
+        self.headset = Headset(args.report_id, args.device_match, on_close=self._forget_hid)
+        self.hid_fd = None            # dongle fd registered in the selector
+        self.sub = None               # "pactl subscribe" process
+        self.sub_buf = b""
+        self.sub_retry_at = 0.0
+        self.next_check = 0.0
+        self.off_deadline = None
+        self.pulse_warned = False
+        # "Call" state
+        self.in_call = False
+        self.source = None            # name of the Jabra PipeWire source
+        self.muted = False
+        self.muted_by_us = False      # mute set by the daemon (lifted when the call ends)
+        self.mute_bit = False         # last Phone Mute bit received
+
+    # --- selector --------------------------------------------------------
+
+    def _forget_hid(self, fd):
+        if self.hid_fd == fd:
+            try:
+                self.sel.unregister(fd)
+            except (KeyError, ValueError, OSError):
+                pass
+            self.hid_fd = None
+
+    def _watch_hid(self):
+        if self.args.mute_sync and self.headset.fd is not None and self.hid_fd is None:
+            self.sel.register(self.headset.fd, selectors.EVENT_READ, "hid")
+            self.hid_fd = self.headset.fd
+
+    def _schedule_check(self, delay):
+        self.next_check = min(self.next_check, time.monotonic() + delay)
+
+    # --- pactl subscribe -------------------------------------------------
+
+    def _start_subscribe(self):
+        try:
+            self.sub = subprocess.Popen(["pactl", "subscribe"], stdout=subprocess.PIPE,
+                                        stderr=subprocess.DEVNULL, env=C_ENV)
+        except OSError as exc:
+            log.error("Cannot start \"pactl subscribe\": %s", exc)
+            self.sub = None
+            self.sub_retry_at = time.monotonic() + 10
+            return
+        os.set_blocking(self.sub.stdout.fileno(), False)
+        self.sel.register(self.sub.stdout, selectors.EVENT_READ, "pactl")
+        self.sub_buf = b""
+        self._schedule_check(0)
+
+    def _stop_subscribe(self):
+        if self.sub is None:
+            return
+        try:
+            self.sel.unregister(self.sub.stdout)
+        except (KeyError, ValueError):
+            pass
+        if self.sub.poll() is None:
+            self.sub.terminate()
+            try:
+                self.sub.wait(2)
+            except subprocess.TimeoutExpired:
+                self.sub.kill()
+        self.sub.stdout.close()
+        self.sub = None
+
+    def _on_pactl(self):
+        try:
+            chunk = os.read(self.sub.stdout.fileno(), 4096)
+        except BlockingIOError:
+            return
+        if not chunk:
+            log.warning("\"pactl subscribe\" stopped (PipeWire restarted?), retrying in 2 s")
+            self._stop_subscribe()
+            self.sub_retry_at = time.monotonic() + 2
+            return
+        self.sub_buf += chunk
+        *lines, self.sub_buf = self.sub_buf.split(b"\n")
+        for line in lines:
+            # A recording stream opened/closed, a source plugged/unplugged or the
+            # default source changed. Plain "change" events on a source (volume,
+            # automatic gain control) are ignored.
+            if (b"source-output" in line or b"on server" in line
+                    or (b"on source #" in line and (b"'new'" in line or b"'remove'" in line))):
+                self._schedule_check(0.3)
+
+    # --- HID -------------------------------------------------------------
+
+    def _on_hid(self):
+        while True:
+            data = self.headset.read()
+            if not data:
+                return
+            self._handle_input(data)
+
+    def _handle_input(self, data):
+        if len(data) < 2 or data[0] != self.args.report_id:
+            return
+        pressed = bool(data[1] & INPUT_PHONE_MUTE)
+        rising = pressed and not self.mute_bit
+        self.mute_bit = pressed
+        if not rising or not self.in_call:
+            return
+        self.muted = not self.muted
+        self.muted_by_us = self.muted
+        log.info("Mute button / boom arm: microphone %s", "muted" if self.muted else "live")
+        if self.source:
+            try:
+                set_source_mute(self.source, self.muted)
+            except PulseError as exc:
+                log.warning("Cannot change mute state of %s: %s", self.source, exc)
+        self._apply_leds()
+
+    # --- logic -----------------------------------------------------------
+
+    def _apply_leds(self):
+        bits = 0
+        if self.in_call:
+            bits |= LED_OFF_HOOK
+            if self.muted:
+                bits |= LED_MUTE
+        if self.headset.set_leds(bits):
+            self._watch_hid()
+
+    def _start_call(self, source, source_muted):
+        self.in_call = True
+        self.source = source
+        self.muted = source_muted if self.args.mute_sync else False
+        self.muted_by_us = False
+        self.mute_bit = False
+        self._apply_leds()
+        log.info("Busylight on (source %s%s)", source,
+                 ", microphone already muted at system level" if self.muted else "")
+
+    def _end_call(self):
+        self.off_deadline = None
+        if self.muted_by_us and self.source:
+            try:
+                set_source_mute(self.source, False)
+                log.info("System microphone unmuted (it had been muted from the headset)")
+            except PulseError as exc:
+                log.warning("Cannot unmute %s: %s", self.source, exc)
+        self.in_call = False
+        self.muted = False
+        self.muted_by_us = False
+        self._apply_leds()
+        log.info("Busylight off")
+
+    def _check(self):
+        try:
+            sources, streams = classify_streams(self.args)
+        except PulseError as exc:
+            if not self.pulse_warned:
+                log.warning("PipeWire/pactl unavailable: %s", exc)
+                self.pulse_warned = True
+            return
+        self.pulse_warned = False
+        active = [s for s in streams if s[2]]
+        if active:
+            if self.off_deadline is not None:
+                self.off_deadline = None
+                log.info("Microphone in use again, busylight kept on")
+            if not self.in_call:
+                log.info("Microphone in use by: %s", ", ".join(s[0] for s in active))
+                source = active[0][1]
+                muted = next((m for n, m in sources.values() if n == source), False)
+                self._start_call(source, muted)
+            elif self.headset.fd is None:
+                # Dongle replugged or previous write failed: apply the state again.
+                self._apply_leds()
+        elif self.in_call and self.off_deadline is None:
+            self.off_deadline = time.monotonic() + self.args.off_delay
+            log.info("No application uses the microphone any more, turning off in %g s",
+                     self.args.off_delay)
+
+    def run(self):
+        def _stop(signum, frame):
+            raise Stop()
+
+        signal.signal(signal.SIGTERM, _stop)
+        signal.signal(signal.SIGINT, _stop)
+        log.info("jabra-busylight %s started (applications: %s; ignored: %s; "
+                 "off delay: %g s; mute sync: %s)", __version__,
+                 ", ".join(self.args.apps) or "all", ", ".join(self.args.ignore) or "none",
+                 self.args.off_delay, "yes" if self.args.mute_sync else "no")
+        try:
+            while True:
+                now = time.monotonic()
+                if self.sub is None and now >= self.sub_retry_at:
+                    self._start_subscribe()
+                deadlines = [self.next_check]
+                if self.off_deadline is not None:
+                    deadlines.append(self.off_deadline)
+                if self.sub is None:
+                    deadlines.append(self.sub_retry_at)
+                timeout = max(0.0, min(deadlines) - time.monotonic())
+                for key, _ in self.sel.select(timeout):
+                    if key.data == "pactl" and self.sub is not None:
+                        self._on_pactl()
+                    elif key.data == "hid":
+                        self._on_hid()
+                now = time.monotonic()
+                if now >= self.next_check:
+                    self.next_check = now + self.args.poll_interval
+                    self._check()
+                if self.off_deadline is not None and time.monotonic() >= self.off_deadline:
+                    self._end_call()
+        except Stop:
+            log.info("Stop requested")
+        finally:
+            signal.signal(signal.SIGTERM, signal.SIG_IGN)
+            signal.signal(signal.SIGINT, signal.SIG_IGN)
+            self._shutdown()
+        return 0
+
+    def _shutdown(self):
+        if self.in_call:
+            self._end_call()
+        self._stop_subscribe()
+        self.headset.close()
+        self.sel.close()
+
+
+# ---------------------------------------------------------------------------
+# Commands
+# ---------------------------------------------------------------------------
+
+def cmd_status(args):
+    rc = 0
+    print("Jabra dongles (hidraw):")
+    devices = list_jabra_hidraw()
+    if not devices:
+        print("  none: is the dongle plugged in?")
+        rc = 1
+    for d in devices:
+        print("  %-14s %-26s telephony: %-3s  access: %s" % (
+            d["path"], d["name"] or "?", "yes" if d["telephony"] else "no",
+            "OK" if d["writable"] else "DENIED (udev rule?)"))
+        if d["telephony"] and not d["writable"]:
+            rc = 1
+    print()
+    try:
+        sources, streams = classify_streams(args)
+    except PulseError as exc:
+        print("PipeWire/pactl: %s" % exc)
+        return 1
+    print("Microphone sources matching \"%s\":" % args.source_match)
+    if not sources:
+        print("  none: is the headset on and connected?")
+        rc = 1
+    for index, (name, muted) in sources.items():
+        print("  #%s %s (muted: %s)" % (index, name, "yes" if muted else "no"))
+    print()
+    print("Applications recording from this microphone:")
+    if not streams:
+        print("  none")
+    for label, _source, kept, reason in streams:
+        print("  [%s] %s" % ("triggers" if kept else reason, label))
+    return rc
+
+
+def cmd_leds(args, bits):
+    headset = Headset(args.report_id, args.device_match)
+    ok = headset.set_leds(bits)
+    headset.close()
+    if ok:
+        print("Busylight %s" % ("on" if bits & LED_OFF_HOOK else "off"))
+    return 0 if ok else 1
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+
+def _env(name, default=None):
+    value = os.environ.get("JABRA_BUSYLIGHT_" + name)
+    return default if value is None or value.strip() == "" else value.strip()
+
+
+def _env_bool(name, default):
+    value = _env(name)
+    return default if value is None else value.lower() in ("1", "true", "yes", "on")
+
+
+def _split(raw):
+    return [x.strip().lower() for x in (raw or "").split(",") if x.strip()]
+
+
+def build_parser():
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--apps", default=_env("APPS", ""),
+                        help="comma-separated applications that trigger the busylight; "
+                             "empty = all [JABRA_BUSYLIGHT_APPS]")
+    common.add_argument("--ignore", default=_env("IGNORE", DEFAULT_IGNORE),
+                        help="ignored applications [JABRA_BUSYLIGHT_IGNORE] "
+                             "(default: %(default)s)")
+    common.add_argument("--source-match", default=_env("SOURCE_MATCH", "jabra"),
+                        help="text identifying the headset PipeWire microphone source "
+                             "[JABRA_BUSYLIGHT_SOURCE_MATCH] (default: %(default)s)")
+    common.add_argument("--device-match", default=_env("DEVICE_MATCH", ""),
+                        help="filter on the dongle HID name, e.g. \"Link 390\" "
+                             "[JABRA_BUSYLIGHT_DEVICE_MATCH]")
+    common.add_argument("--report-id", type=lambda v: int(v, 0),
+                        default=int(_env("REPORT_ID", str(DEFAULT_REPORT_ID)), 0),
+                        help="Report ID of the Telephony report [JABRA_BUSYLIGHT_REPORT_ID] "
+                             "(default: %(default)s)")
+    common.add_argument("--off-delay", type=float, default=float(_env("OFF_DELAY", "5")),
+                        help="seconds before turning off once the microphone is released "
+                             "[JABRA_BUSYLIGHT_OFF_DELAY] (default: %(default)s)")
+    common.add_argument("--poll-interval", type=float, default=float(_env("POLL_INTERVAL", "5")),
+                        help="fallback periodic check, in seconds "
+                             "[JABRA_BUSYLIGHT_POLL_INTERVAL] (default: %(default)s)")
+    common.add_argument("--mute-sync", action=argparse.BooleanOptionalAction,
+                        default=_env_bool("MUTE_SYNC", True),
+                        help="handle the mute button / boom arm during calls "
+                             "[JABRA_BUSYLIGHT_MUTE_SYNC]")
+    common.add_argument("-v", "--verbose", action="store_true",
+                        default=_env_bool("VERBOSE", False),
+                        help="verbose logging [JABRA_BUSYLIGHT_VERBOSE]")
+
+    parser = argparse.ArgumentParser(
+        prog="jabra-busylight",
+        description="Turn on a Jabra headset busylight while the microphone is in use.")
+    parser.add_argument("--version", action="version", version="%(prog)s " + __version__)
+    sub = parser.add_subparsers(dest="command", metavar="COMMAND")
+    sub.add_parser("daemon", parents=[common], help="watch the microphone and drive the busylight")
+    sub.add_parser("status", parents=[common], help="diagnostics: dongle, permissions, microphone, applications")
+    sub.add_parser("on", parents=[common], help="turn the busylight on (manual test)")
+    sub.add_parser("off", parents=[common], help="turn the busylight and mute LED off")
+    return parser
+
+
+def main(argv=None):
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    if not args.command:
+        parser.print_help()
+        return 2
+    args.apps = _split(args.apps)
+    args.ignore = _split(args.ignore)
+    args.source_match = args.source_match.lower()
+
+    under_systemd = "JOURNAL_STREAM" in os.environ
+    logging.basicConfig(
+        level=logging.DEBUG if args.verbose else logging.INFO,
+        format="%(levelname)s %(message)s" if under_systemd else "%(asctime)s %(levelname)s %(message)s",
+        datefmt="%H:%M:%S")
+
+    if args.command == "daemon":
+        return Daemon(args).run()
+    if args.command == "status":
+        return cmd_status(args)
+    if args.command == "on":
+        return cmd_leds(args, LED_OFF_HOOK)
+    if args.command == "off":
+        return cmd_leds(args, 0)
+    parser.print_help()
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())

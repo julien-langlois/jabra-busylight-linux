@@ -1,0 +1,28 @@
+# jabra-busylight configuration (KEY=value format, read by systemd).
+# Location: ~/.config/jabra-busylight/config
+# After editing: systemctl --user restart jabra-busylight
+
+# Comma-separated applications that trigger the busylight
+# (case-insensitive match on the application name).
+# Empty = any application recording from the Jabra microphone.
+# Example, react to Firefox only: JABRA_BUSYLIGHT_APPS=firefox
+JABRA_BUSYLIGHT_APPS=
+
+# Ignored applications. Chrome/Chromium are ignored by default: Google Meet
+# already drives the headset there through WebHID, and handling mute twice
+# would cause the "Microphone muted by system" warning.
+JABRA_BUSYLIGHT_IGNORE=pavucontrol,gnome-control-center,chrome,chromium
+
+# Seconds to wait before turning off once the microphone is released.
+JABRA_BUSYLIGHT_OFF_DELAY=5
+
+# Handle the boom arm / mute button during calls (PipeWire source mute
+# + headset Mute LED). true or false.
+JABRA_BUSYLIGHT_MUTE_SYNC=true
+
+# Advanced settings (defaults shown in comments)
+#JABRA_BUSYLIGHT_SOURCE_MATCH=jabra
+#JABRA_BUSYLIGHT_DEVICE_MATCH=
+#JABRA_BUSYLIGHT_REPORT_ID=2
+#JABRA_BUSYLIGHT_POLL_INTERVAL=5
+#JABRA_BUSYLIGHT_VERBOSE=false

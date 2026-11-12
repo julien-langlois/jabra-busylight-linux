@@ -1,0 +1,232 @@
+# Jabra Link 390: decoded HID report descriptor (hid-decode), captured on 2026-11-12
+# device 0:0
+# 0x05, 0x0b,                    // Usage Page (Telephony Devices)      0
+# 0x09, 0x05,                    // Usage (Headset)                     2
+# 0xa1, 0x01,                    // Collection (Application)            4
+# 0x85, 0x02,                    //  Report ID (2)                      6
+# 0x05, 0x0b,                    //  Usage Page (Telephony Devices)     8
+# 0x15, 0x00,                    //  Logical Minimum (0)                10
+# 0x25, 0x01,                    //  Logical Maximum (1)                12
+# 0x09, 0x20,                    //  Usage (Hook Switch)                14
+# 0x09, 0x97,                    //  Usage (Line Busy Tone)             16
+# 0x09, 0x2a,                    //  Usage (Line OSC)                   18
+# 0x75, 0x01,                    //  Report Size (1)                    20
+# 0x95, 0x03,                    //  Report Count (3)                   22
+# 0x81, 0x23,                    //  Input (Cnst,Var,Abs,NoPref)        24
+# 0x09, 0x2f,                    //  Usage (Phone Mute)                 26
+# 0x09, 0x21,                    //  Usage (Flash)                      28
+# 0x09, 0x24,                    //  Usage (Redial)                     30
+# 0x09, 0x50,                    //  Usage (Speed Dial)                 32
+# 0x75, 0x01,                    //  Report Size (1)                    34
+# 0x95, 0x04,                    //  Report Count (4)                   36
+# 0x81, 0x06,                    //  Input (Data,Var,Rel)               38
+# 0x09, 0x06,                    //  Usage (Telephony Key Pad)          40
+# 0xa1, 0x02,                    //  Collection (Logical)               42
+# 0x19, 0xb0,                    //   Usage Minimum (176)               44
+# 0x29, 0xbb,                    //   Usage Maximum (187)               46
+# 0x15, 0x00,                    //   Logical Minimum (0)               48
+# 0x25, 0x0c,                    //   Logical Maximum (12)              50
+# 0x75, 0x04,                    //   Report Size (4)                   52
+# 0x95, 0x01,                    //   Report Count (1)                  54
+# 0x81, 0x40,                    //   Input (Data,Arr,Abs,Null)         56
+# 0xc0,                          //  End Collection                     58
+# 0x09, 0x07,                    //  Usage (Programmable Button)        59
+# 0x15, 0x00,                    //  Logical Minimum (0)                61
+# 0x25, 0x01,                    //  Logical Maximum (1)                63
+# 0x05, 0x09,                    //  Usage Page (Button)                65
+# 0x75, 0x01,                    //  Report Size (1)                    67
+# 0x95, 0x01,                    //  Report Count (1)                   69
+# 0x81, 0x02,                    //  Input (Data,Var,Abs)               71
+# 0x75, 0x01,                    //  Report Size (1)                    73
+# 0x95, 0x04,                    //  Report Count (4)                   75
+# 0x81, 0x01,                    //  Input (Cnst,Arr,Abs)               77
+# 0x05, 0x08,                    //  Usage Page (LEDs)                  79
+# 0x15, 0x00,                    //  Logical Minimum (0)                81
+# 0x25, 0x01,                    //  Logical Maximum (1)                83
+# 0x09, 0x17,                    //  Usage (Off-Hook)                   85
+# 0x09, 0x09,                    //  Usage (Mute)                       87
+# 0x09, 0x18,                    //  Usage (Ring)                       89
+# 0x09, 0x20,                    //  Usage (Hold)                       91
+# 0x09, 0x21,                    //  Usage (Microphone)                 93
+# 0x09, 0x2a,                    //  Usage (On-Line)                    95
+# 0x75, 0x01,                    //  Report Size (1)                    97
+# 0x95, 0x06,                    //  Report Count (6)                   99
+# 0x91, 0x22,                    //  Output (Data,Var,Abs,NoPref)       101
+# 0x05, 0x0b,                    //  Usage Page (Telephony Devices)     103
+# 0x15, 0x00,                    //  Logical Minimum (0)                105
+# 0x25, 0x01,                    //  Logical Maximum (1)                107
+# 0x09, 0x9e,                    //  Usage (Ringer)                     109
+# 0x75, 0x01,                    //  Report Size (1)                    111
+# 0x95, 0x01,                    //  Report Count (1)                   113
+# 0x91, 0x22,                    //  Output (Data,Var,Abs,NoPref)       115
+# 0x75, 0x01,                    //  Report Size (1)                    117
+# 0x95, 0x09,                    //  Report Count (9)                   119
+# 0x91, 0x01,                    //  Output (Cnst,Arr,Abs)              121
+# 0xc0,                          // End Collection                      123
+# 0x06, 0x00, 0xff,              // Usage Page (Vendor Defined Page 1)  124
+# 0x09, 0x05,                    // Usage (Vendor Usage 0x05)           127
+# 0xa1, 0x01,                    // Collection (Application)            129
+# 0x85, 0x04,                    //  Report ID (4)                      131
+# 0x06, 0x30, 0xff,              //  Usage Page (Vendor Usage Page 0xff30) 133
+# 0x15, 0x00,                    //  Logical Minimum (0)                136
+# 0x25, 0x01,                    //  Logical Maximum (1)                138
+# 0x0a, 0xff, 0xff,              //  Usage (Vendor Usage 0xffff)        140
+# 0x75, 0x01,                    //  Report Size (1)                    143
+# 0x95, 0x01,                    //  Report Count (1)                   145
+# 0xb1, 0x23,                    //  Feature (Cnst,Var,Abs,NoPref)      147
+# 0x75, 0x01,                    //  Report Size (1)                    149
+# 0x95, 0x07,                    //  Report Count (7)                   151
+# 0xb1, 0x01,                    //  Feature (Cnst,Arr,Abs)             153
+# 0x09, 0x20,                    //  Usage (Vendor Usage 0x20)          155
+# 0x0a, 0xfb, 0xff,              //  Usage (Vendor Usage 0xfffb)        157
+# 0x09, 0x97,                    //  Usage (Vendor Usage 0x97)          160
+# 0x09, 0x2a,                    //  Usage (Vendor Usage 0x2a)          162
+# 0x75, 0x01,                    //  Report Size (1)                    164
+# 0x95, 0x04,                    //  Report Count (4)                   166
+# 0x81, 0x23,                    //  Input (Cnst,Var,Abs,NoPref)        168
+# 0x09, 0x2f,                    //  Usage (Vendor Usage 0x2f)          170
+# 0x09, 0x21,                    //  Usage (Vendor Usage 0x21)          172
+# 0x09, 0x24,                    //  Usage (Vendor Usage 0x24)          174
+# 0x0a, 0xfd, 0xff,              //  Usage (Vendor Usage 0xfffd)        176
+# 0x09, 0x50,                    //  Usage (Vendor Usage 0x50)          179
+# 0x75, 0x01,                    //  Report Size (1)                    181
+# 0x95, 0x05,                    //  Report Count (5)                   183
+# 0x81, 0x06,                    //  Input (Data,Var,Rel)               185
+# 0x09, 0x06,                    //  Usage (Vendor Usage 0x06)          187
+# 0xa1, 0x02,                    //  Collection (Logical)               189
+# 0x19, 0xb0,                    //   Usage Minimum (176)               191
+# 0x29, 0xbb,                    //   Usage Maximum (187)               193
+# 0x15, 0x00,                    //   Logical Minimum (0)               195
+# 0x25, 0x0c,                    //   Logical Maximum (12)              197
+# 0x75, 0x04,                    //   Report Size (4)                   199
+# 0x95, 0x01,                    //   Report Count (1)                  201
+# 0x81, 0x40,                    //   Input (Data,Arr,Abs,Null)         203
+# 0xc0,                          //  End Collection                     205
+# 0x0a, 0xfc, 0xff,              //  Usage (Vendor Usage 0xfffc)        206
+# 0x15, 0x00,                    //  Logical Minimum (0)                209
+# 0x25, 0x01,                    //  Logical Maximum (1)                211
+# 0x75, 0x01,                    //  Report Size (1)                    213
+# 0x95, 0x01,                    //  Report Count (1)                   215
+# 0x81, 0x23,                    //  Input (Cnst,Var,Abs,NoPref)        217
+# 0x75, 0x01,                    //  Report Size (1)                    219
+# 0x95, 0x02,                    //  Report Count (2)                   221
+# 0x81, 0x07,                    //  Input (Cnst,Var,Rel)               223
+# 0x06, 0x40, 0xff,              //  Usage Page (Vendor Usage Page 0xff40) 225
+# 0x15, 0x00,                    //  Logical Minimum (0)                228
+# 0x25, 0x01,                    //  Logical Maximum (1)                230
+# 0x09, 0x17,                    //  Usage (Vendor Usage 0x17)          232
+# 0x0a, 0xfb, 0xff,              //  Usage (Vendor Usage 0xfffb)        234
+# 0x09, 0x09,                    //  Usage (Vendor Usage 0x09)          237
+# 0x09, 0x18,                    //  Usage (Vendor Usage 0x18)          239
+# 0x09, 0x20,                    //  Usage (Vendor Usage 0x20)          241
+# 0x09, 0x21,                    //  Usage (Vendor Usage 0x21)          243
+# 0x09, 0x2a,                    //  Usage (Vendor Usage 0x2a)          245
+# 0x75, 0x01,                    //  Report Size (1)                    247
+# 0x95, 0x07,                    //  Report Count (7)                   249
+# 0x91, 0x22,                    //  Output (Data,Var,Abs,NoPref)       251
+# 0x06, 0x30, 0xff,              //  Usage Page (Vendor Usage Page 0xff30) 253
+# 0x15, 0x00,                    //  Logical Minimum (0)                256
+# 0x25, 0x01,                    //  Logical Maximum (1)                258
+# 0x09, 0x9e,                    //  Usage (Vendor Usage 0x9e)          260
+# 0x75, 0x01,                    //  Report Size (1)                    262
+# 0x95, 0x01,                    //  Report Count (1)                   264
+# 0x91, 0x22,                    //  Output (Data,Var,Abs,NoPref)       266
+# 0x75, 0x01,                    //  Report Size (1)                    268
+# 0x95, 0x08,                    //  Report Count (8)                   270
+# 0x91, 0x01,                    //  Output (Cnst,Arr,Abs)              272
+# 0x85, 0x05,                    //  Report ID (5)                      274
+# 0x06, 0x00, 0xff,              //  Usage Page (Vendor Defined Page 1) 276
+# 0x09, 0x01,                    //  Usage (Vendor Usage 1)             279
+# 0x15, 0x00,                    //  Logical Minimum (0)                281
+# 0x26, 0xff, 0x00,              //  Logical Maximum (255)              283
+# 0x75, 0x08,                    //  Report Size (8)                    286
+# 0x95, 0x3f,                    //  Report Count (63)                  288
+# 0x92, 0x02, 0x01,              //  Output (Data,Var,Abs,Buff)         290
+# 0x09, 0x01,                    //  Usage (Vendor Usage 1)             293
+# 0x15, 0x00,                    //  Logical Minimum (0)                295
+# 0x26, 0xff, 0x00,              //  Logical Maximum (255)              297
+# 0x75, 0x08,                    //  Report Size (8)                    300
+# 0x95, 0x3f,                    //  Report Count (63)                  302
+# 0x82, 0x02, 0x01,              //  Input (Data,Var,Abs,Buff)          304
+# 0xc0,                          // End Collection                      307
+# 0x05, 0x0c,                    // Usage Page (Consumer Devices)       308
+# 0x09, 0x01,                    // Usage (Consumer Control)            310
+# 0xa1, 0x01,                    // Collection (Application)            312
+# 0x85, 0x01,                    //  Report ID (1)                      314
+# 0x15, 0x00,                    //  Logical Minimum (0)                316
+# 0x25, 0x01,                    //  Logical Maximum (1)                318
+# 0x09, 0xea,                    //  Usage (Volume Down)                320
+# 0x09, 0xe9,                    //  Usage (Volume Up)                  322
+# 0x09, 0xe2,                    //  Usage (Mute)                       324
+# 0x09, 0xb3,                    //  Usage (Fast Forward)               326
+# 0x09, 0xb4,                    //  Usage (Rewind)                     328
+# 0x09, 0xb5,                    //  Usage (Scan Next Track)            330
+# 0x09, 0xb6,                    //  Usage (Scan Previous Track)        332
+# 0x09, 0xb7,                    //  Usage (Stop)                       334
+# 0x09, 0xcd,                    //  Usage (Play/Pause)                 336
+# 0x75, 0x01,                    //  Report Size (1)                    338
+# 0x95, 0x09,                    //  Report Count (9)                   340
+# 0x81, 0x02,                    //  Input (Data,Var,Abs)               342
+# 0x09, 0xb1,                    //  Usage (Pause)                      344
+# 0x09, 0xb0,                    //  Usage (Play)                       346
+# 0x75, 0x01,                    //  Report Size (1)                    348
+# 0x95, 0x02,                    //  Report Count (2)                   350
+# 0x81, 0x06,                    //  Input (Data,Var,Rel)               352
+# 0x75, 0x01,                    //  Report Size (1)                    354
+# 0x95, 0x05,                    //  Report Count (5)                   356
+# 0x81, 0x01,                    //  Input (Cnst,Arr,Abs)               358
+# 0x05, 0x08,                    //  Usage Page (LEDs)                  360
+# 0x15, 0x00,                    //  Logical Minimum (0)                362
+# 0x25, 0x01,                    //  Logical Maximum (1)                364
+# 0x09, 0x33,                    //  Usage (Stop)                       366
+# 0x09, 0x36,                    //  Usage (Play)                       368
+# 0x09, 0x37,                    //  Usage (Pause)                      370
+# 0x09, 0x38,                    //  Usage (Record)                     372
+# 0x75, 0x01,                    //  Report Size (1)                    374
+# 0x95, 0x04,                    //  Report Count (4)                   376
+# 0x91, 0x22,                    //  Output (Data,Var,Abs,NoPref)       378
+# 0x75, 0x01,                    //  Report Size (1)                    380
+# 0x95, 0x0c,                    //  Report Count (12)                  382
+# 0x91, 0x01,                    //  Output (Cnst,Arr,Abs)              384
+# 0xc0,                          // End Collection                      386
+# 0x06, 0x99, 0xff,              // Usage Page (Vendor Usage Page 0xff99) 387
+# 0x09, 0x01,                    // Usage (Vendor Usage 0x01)           390
+# 0xa1, 0x01,                    // Collection (Application)            392
+# 0x85, 0x9a,                    //  Report ID (154)                    394
+# 0x15, 0x00,                    //  Logical Minimum (0)                396
+# 0x26, 0xff, 0x00,              //  Logical Maximum (255)              398
+# 0x95, 0x3f,                    //  Report Count (63)                  401
+# 0x75, 0x08,                    //  Report Size (8)                    403
+# 0x09, 0x03,                    //  Usage (Vendor Usage 0x03)          405
+# 0xb1, 0x02,                    //  Feature (Data,Var,Abs)             407
+# 0x85, 0x9b,                    //  Report ID (155)                    409
+# 0x15, 0x00,                    //  Logical Minimum (0)                411
+# 0x25, 0x01,                    //  Logical Maximum (1)                413
+# 0x95, 0x01,                    //  Report Count (1)                   415
+# 0x75, 0x01,                    //  Report Size (1)                    417
+# 0x09, 0x04,                    //  Usage (Vendor Usage 0x04)          419
+# 0x81, 0x06,                    //  Input (Data,Var,Rel)               421
+# 0x75, 0x01,                    //  Report Size (1)                    423
+# 0x95, 0x07,                    //  Report Count (7)                   425
+# 0x81, 0x01,                    //  Input (Cnst,Arr,Abs)               427
+# 0xc0,                          // End Collection                      429
+# 0x06, 0x13, 0xff,              // Usage Page (Vendor Usage Page 0xff13) 430
+# 0x09, 0x01,                    // Usage (Vendor Usage 0x01)           433
+# 0xa1, 0x01,                    // Collection (Application)            435
+# 0x15, 0x00,                    //  Logical Minimum (0)                437
+# 0x26, 0xff, 0x00,              //  Logical Maximum (255)              439
+# 0x85, 0x06,                    //  Report ID (6)                      442
+# 0x09, 0x00,                    //  Usage (Vendor Usage 0x00)          444
+# 0x75, 0x08,                    //  Report Size (8)                    446
+# 0x95, 0x3d,                    //  Report Count (61)                  448
+# 0x91, 0x02,                    //  Output (Data,Var,Abs)              450
+# 0x85, 0x07,                    //  Report ID (7)                      452
+# 0x09, 0x00,                    //  Usage (Vendor Usage 0x00)          454
+# 0x75, 0x08,                    //  Report Size (8)                    456
+# 0x95, 0x3d,                    //  Report Count (61)                  458
+# 0x81, 0x02,                    //  Input (Data,Var,Abs)               460
+# 0xc0,                          // End Collection                      462
+# 
+R: 463 05 0b 09 05 a1 01 85 02 05 0b 15 00 25 01 09 20 09 97 09 2a 75 01 95 03 81 23 09 2f 09 21 09 24 09 50 75 01 95 04 81 06 09 06 a1 02 19 b0 29 bb 15 00 25 0c 75 04 95 01 81 40 c0 09 07 15 00 25 01 05 09 75 01 95 01 81 02 75 01 95 04 81 01 05 08 15 00 25 01 09 17 09 09 09 18 09 20 09 21 09 2a 75 01 95 06 91 22 05 0b 15 00 25 01 09 9e 75 01 95 01 91 22 75 01 95 09 91 01 c0 06 00 ff 09 05 a1 01 85 04 06 30 ff 15 00 25 01 0a ff ff 75 01 95 01 b1 23 75 01 95 07 b1 01 09 20 0a fb ff 09 97 09 2a 75 01 95 04 81 23 09 2f 09 21 09 24 0a fd ff 09 50 75 01 95 05 81 06 09 06 a1 02 19 b0 29 bb 15 00 25 0c 75 04 95 01 81 40 c0 0a fc ff 15 00 25 01 75 01 95 01 81 23 75 01 95 02 81 07 06 40 ff 15 00 25 01 09 17 0a fb ff 09 09 09 18 09 20 09 21 09 2a 75 01 95 07 91 22 06 30 ff 15 00 25 01 09 9e 75 01 95 01 91 22 75 01 95 08 91 01 85 05 06 00 ff 09 01 15 00 26 ff 00 75 08 95 3f 92 02 01 09 01 15 00 26 ff 00 75 08 95 3f 82 02 01 c0 05 0c 09 01 a1 01 85 01 15 00 25 01 09 ea 09 e9 09 e2 09 b3 09 b4 09 b5 09 b6 09 b7 09 cd 75 01 95 09 81 02 09 b1 09 b0 75 01 95 02 81 06 75 01 95 05 81 01 05 08 15 00 25 01 09 33 09 36 09 37 09 38 75 01 95 04 91 22 75 01 95 0c 91 01 c0 06 99 ff 09 01 a1 01 85 9a 15 00 26 ff 00 95 3f 75 08 09 03 b1 02 85 9b 15 00 25 01 95 01 75 01 09 04 81 06 75 01 95 07 81 01 c0 06 13 ff 09 01 a1 01 15 00 26 ff 00 85 06 09 00 75 08 95 3d 91 02 85 07 09 00 75 08 95 3d 81 02 c0
+N: device 0:0
+I: 3 0001 0001
